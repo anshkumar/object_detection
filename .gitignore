@@ -1,3 +1,5 @@
+.DS_Store
+
 __pycache__/
 anchor_generators/__pycache__/
 box_coders/__pycache__/
