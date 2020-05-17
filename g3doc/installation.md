@@ -8,10 +8,10 @@ Tensorflow Object Detection API depends on the following libraries:
 *   Python-tk
 *   Pillow 1.0
 *   lxml
-*   tf Slim
+*   tf Slim (https://github.com/anshkumar/slim)
 *   Jupyter notebook
 *   Matplotlib
-*   Tensorflow (>=1.12.0)
+*   Tensorflow (>=1.14.0)
 *   Cython
 *   contextlib2
 *   cocoapi
