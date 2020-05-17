@@ -8,7 +8,7 @@ Tensorflow Object Detection API depends on the following libraries:
 *   Python-tk
 *   Pillow 1.0
 *   lxml
-*   tf Slim (which is included in the "tensorflow/models/research/" checkout)
+*   tf Slim
 *   Jupyter notebook
 *   Matplotlib
 *   Tensorflow (>=1.12.0)
@@ -76,8 +76,7 @@ cp -r pycocotools <path_to_tensorflow>/models/research/
 
 The Tensorflow Object Detection API uses Protobufs to configure model and
 training parameters. Before the framework can be used, the Protobuf libraries
-must be compiled. This should be done by running the following command from
-the tensorflow/models/research/ directory:
+must be compiled. This should be done by running the following command:
 
 
 ``` bash
@@ -123,9 +122,8 @@ protoc object_detection/protos/*.proto --python_out=.
 
 ## Add Libraries to PYTHONPATH
 
-When running locally, the tensorflow/models/research/ and slim directories
-should be appended to PYTHONPATH. This can be done by running the following from
-tensorflow/models/research/:
+When running locally, the object_detection and slim directories
+should be appended to PYTHONPATH. This can be done by running the following:
 
 
 ``` bash
@@ -135,7 +133,7 @@ export PYTHONPATH=$PYTHONPATH:`pwd`:`pwd`/slim
 Note: This command needs to run from every new terminal you start. If you wish
 to avoid running this manually, you can add it as a new line to the end of your
 ~/.bashrc file, replacing \`pwd\` with the absolute path of
-tensorflow/models/research on your system.
+object_detection containing folder on your system.
 
 # Testing the Installation
 
