@@ -269,28 +269,28 @@ class ConvolutionalMaskHead(head.Head):
           [self._kernel_size, self._kernel_size],
           normalizer_fn=None,
           normalizer_params=None,
-          scope='MaskPredictor')
+          scope='MaskPredictor1')
       conv2 = slim.conv2d(
           conv1,
           num_predictions_per_location * num_mask_channels,
           [self._kernel_size, self._kernel_size],
           normalizer_fn=None,
           normalizer_params=None,
-          scope='MaskPredictor')
+          scope='MaskPredictor2')
       conv3 = slim.conv2d(
           conv2,
           num_predictions_per_location * num_mask_channels,
           [self._kernel_size, self._kernel_size],
           normalizer_fn=None,
           normalizer_params=None,
-          scope='MaskPredictor')
+          scope='MaskPredictor3')
       conv4 = slim.conv2d(
           conv3,
           num_predictions_per_location * num_mask_channels,
           [self._kernel_size, self._kernel_size],
           normalizer_fn=None,
           normalizer_params=None,
-          scope='MaskPredictor')
+          scope='MaskPredictor4')
       mask_predictions = slim.conv2d(
           conv4,
           num_predictions_per_location * num_mask_channels,
