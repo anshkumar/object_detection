@@ -181,7 +181,7 @@ message FasterRcnn {
 
   // Whether to use tf.contrib.model_pruning.masked_conv2d instead of slim.conv2d
   // Should be set to True if you want to prune the model while training
-  optional use_masked_conv2d = 41 [default = false];
+  optional bool use_masked_conv2d = 41 [default = false];
 }
 
 message FasterRcnnFeatureExtractor {
