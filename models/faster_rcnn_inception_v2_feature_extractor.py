@@ -143,7 +143,7 @@ class FasterRCNNInceptionV2FeatureExtractor(
               min_depth=self._min_depth,
               depth_multiplier=self._depth_multiplier,
               scope=scope,
-              self.use_masked_conv2d)
+              use_masked_conv2d=self.use_masked_conv2d)
 
     return activations['Mixed_4e'], activations
 
