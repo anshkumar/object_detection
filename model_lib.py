@@ -716,7 +716,8 @@ def create_train_and_eval_specs(train_input_fn,
                                 train_steps,
                                 eval_on_train_data=False,
                                 final_exporter_name='Servo',
-                                eval_spec_names=None):
+                                eval_spec_names=None,
+                                hooks=None):
   """Creates a `TrainSpec` and `EvalSpec`s.
 
   Args:
@@ -737,8 +738,12 @@ def create_train_and_eval_specs(train_input_fn,
     True, the last `EvalSpec` in the list will correspond to training data. The
     rest EvalSpecs in the list are evaluation datas.
   """
-  train_spec = tf.estimator.TrainSpec(
-      input_fn=train_input_fn, max_steps=train_steps)
+  if hooks is None:
+    train_spec = tf.estimator.TrainSpec(
+        input_fn=train_input_fn, max_steps=train_steps)
+  else:
+    train_spec = tf.estimator.TrainSpec(
+        input_fn=train_input_fn, max_steps=train_steps, hooks=hooks)
 
   if eval_spec_names is None:
     eval_spec_names = [str(i) for i in range(len(eval_input_fns))]

@@ -178,6 +178,10 @@ message FasterRcnn {
 
   // Whether to use tf.image.combined_non_max_suppression.
   optional bool use_combined_nms_in_first_stage = 40 [default = false];
+
+  // Whether to use tf.contrib.model_pruning.masked_conv2d instead of slim.conv2d
+  // Should be set to True if you want to prune the model while training
+  optional use_masked_conv2d = 41 [default = false];
 }
 
 message FasterRcnnFeatureExtractor {

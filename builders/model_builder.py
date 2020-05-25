@@ -326,7 +326,7 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
 
 def _build_faster_rcnn_feature_extractor(
     feature_extractor_config, is_training, reuse_weights=None,
-    inplace_batchnorm_update=False):
+    inplace_batchnorm_update=False, use_masked_conv2d=False):
   """Builds a faster_rcnn_meta_arch.FasterRCNNFeatureExtractor based on config.
 
   Args:
@@ -360,7 +360,7 @@ def _build_faster_rcnn_feature_extractor(
       feature_type]
   return feature_extractor_class(
       is_training, first_stage_features_stride,
-      batch_norm_trainable, reuse_weights=reuse_weights)
+      batch_norm_trainable, reuse_weights=reuse_weights, use_masked_conv2d)
 
 
 def _build_faster_rcnn_keras_feature_extractor(
@@ -421,6 +421,7 @@ def _build_faster_rcnn_model(frcnn_config, is_training, add_summaries):
       model_class_map).
   """
   num_classes = frcnn_config.num_classes
+  use_masked_conv2d = frcnn_config.use_masked_conv2d
   image_resizer_fn = image_resizer_builder.build(frcnn_config.image_resizer)
 
   is_keras = (frcnn_config.feature_extractor.type in
@@ -433,7 +434,8 @@ def _build_faster_rcnn_model(frcnn_config, is_training, add_summaries):
   else:
     feature_extractor = _build_faster_rcnn_feature_extractor(
         frcnn_config.feature_extractor, is_training,
-        inplace_batchnorm_update=frcnn_config.inplace_batchnorm_update)
+        inplace_batchnorm_update=frcnn_config.inplace_batchnorm_update,
+        use_masked_conv2d=use_masked_conv2d)
 
   number_of_stages = frcnn_config.number_of_stages
   first_stage_anchor_generator = anchor_generator_builder.build(

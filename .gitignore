@@ -1,4 +1,5 @@
 .DS_Store
+samples/.DS_Store
 
 __pycache__/
 anchor_generators/__pycache__/

@@ -27,6 +27,8 @@ from object_detection.data_decoders import tf_example_decoder
 from object_detection.utils import config_util
 from object_detection.utils import shape_utils
 
+import strip_pruning_vars_lib
+
 slim = tf.contrib.slim
 
 freeze_graph_with_def_protos = freeze_graph.freeze_graph_with_def_protos
@@ -397,7 +399,8 @@ def _export_inference_graph(input_type,
                             output_collection_name='inference_op',
                             graph_hook_fn=None,
                             write_inference_graph=False,
-                            temp_checkpoint_prefix=''):
+                            temp_checkpoint_prefix='',
+                            pruning=False):
   """Export helper."""
   tf.gfile.MakeDirs(output_directory)
   frozen_graph_path = os.path.join(output_directory,
@@ -432,27 +435,20 @@ def _export_inference_graph(input_type,
   saver = tf.train.Saver(**saver_kwargs)
   input_saver_def = saver.as_saver_def()
 
-  write_graph_and_checkpoint(
-      inference_graph_def=tf.get_default_graph().as_graph_def(),
-      model_path=model_path,
-      input_saver_def=input_saver_def,
-      trained_checkpoint_prefix=checkpoint_to_use)
-  if write_inference_graph:
-    inference_graph_def = tf.get_default_graph().as_graph_def()
-    inference_graph_path = os.path.join(output_directory,
-                                        'inference_graph.pbtxt')
-    for node in inference_graph_def.node:
-      node.device = ''
-    with tf.gfile.GFile(inference_graph_path, 'wb') as f:
-      f.write(str(inference_graph_def))
-
   if additional_output_tensor_names is not None:
     output_node_names = ','.join(outputs.keys()+additional_output_tensor_names)
   else:
     output_node_names = ','.join(outputs.keys())
 
+  if pruning:
+    # Get prunned graphDef
+    final_graph_def = strip_pruning_vars_lib.strip_pruning_vars_fn(
+        tf.get_default_graph().as_graph_def(), output_node_names)
+  else:
+    final_graph_def = tf.get_default_graph().as_graph_def()
+
   frozen_graph_def = freeze_graph.freeze_graph_with_def_protos(
-      input_graph_def=tf.get_default_graph().as_graph_def(),
+      input_graph_def=final_graph_def,
       input_saver_def=input_saver_def,
       input_checkpoint=checkpoint_to_use,
       output_node_names=output_node_names,
@@ -461,6 +457,20 @@ def _export_inference_graph(input_type,
       output_graph=frozen_graph_path,
       clear_devices=True,
       initializer_nodes='')
+
+  write_graph_and_checkpoint(
+      inference_graph_def=final_graph_def,
+      model_path=model_path,
+      input_saver_def=input_saver_def,
+      trained_checkpoint_prefix=checkpoint_to_use)
+  if write_inference_graph:
+    inference_graph_def = final_graph_def
+    inference_graph_path = os.path.join(output_directory,
+                                        'inference_graph.pbtxt')
+    for node in inference_graph_def.node:
+      node.device = ''
+    with tf.gfile.GFile(inference_graph_path, 'wb') as f:
+      f.write(str(inference_graph_def))
 
   write_saved_model(saved_model_path, frozen_graph_def,
                     placeholder_tensor, outputs)
@@ -473,7 +483,8 @@ def export_inference_graph(input_type,
                            input_shape=None,
                            output_collection_name='inference_op',
                            additional_output_tensor_names=None,
-                           write_inference_graph=False):
+                           write_inference_graph=False,
+                           pruning=False):
   """Exports inference graph for the model specified in the pipeline config.
 
   Args:
@@ -507,7 +518,8 @@ def export_inference_graph(input_type,
       input_shape,
       output_collection_name,
       graph_hook_fn=graph_rewriter_fn,
-      write_inference_graph=write_inference_graph)
+      write_inference_graph=write_inference_graph,
+      pruning=pruning)
   pipeline_config.eval_config.use_moving_averages = False
   config_util.save_pipeline_config(pipeline_config, output_directory)
 
