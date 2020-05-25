@@ -360,7 +360,8 @@ def _build_faster_rcnn_feature_extractor(
       feature_type]
   return feature_extractor_class(
       is_training, first_stage_features_stride,
-      batch_norm_trainable, reuse_weights=reuse_weights, use_masked_conv2d)
+      batch_norm_trainable, reuse_weights=reuse_weights, 
+      use_masked_conv2d=use_masked_conv2d)
 
 
 def _build_faster_rcnn_keras_feature_extractor(
