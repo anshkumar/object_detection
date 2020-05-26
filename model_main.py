@@ -66,6 +66,23 @@ def main(unused_argv):
   flags.mark_flag_as_required('pipeline_config_path')
   config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir)
 
+  if (FLAGS.sparsity is None) and (FLAGS.pruning_start_step is None) and \
+    (FLAGS.pruning_end_step is None):
+      pruning = False
+    else:
+      pruning = True
+
+    if pruning:
+      # Instantiate hook
+      model_pruning_hook = train_hooks.ModelPruningHook(
+          target_sparsity=FLAGS.sparsity,
+          start_step=FLAGS.pruning_start_step,
+          end_step=FLAGS.pruning_end_step
+      )
+      hooks = [model_pruning_hook]
+    else:
+      hooks = None
+
   train_and_eval_dict = model_lib.create_estimator_and_inputs(
       run_config=config,
       hparams=model_hparams.create_hparams(FLAGS.hparams_overrides),
@@ -73,7 +90,8 @@ def main(unused_argv):
       train_steps=FLAGS.num_train_steps,
       sample_1_of_n_eval_examples=FLAGS.sample_1_of_n_eval_examples,
       sample_1_of_n_eval_on_train_examples=(
-          FLAGS.sample_1_of_n_eval_on_train_examples))
+          FLAGS.sample_1_of_n_eval_on_train_examples),
+      hooks=hooks)
   estimator = train_and_eval_dict['estimator']
   train_input_fn = train_and_eval_dict['train_input_fn']
   eval_input_fns = train_and_eval_dict['eval_input_fns']
@@ -98,30 +116,13 @@ def main(unused_argv):
       model_lib.continuous_eval(estimator, FLAGS.checkpoint_dir, input_fn,
                                 train_steps, name)
   else:
-    if (FLAGS.sparsity is None) and (FLAGS.pruning_start_step is None) and \
-    (FLAGS.pruning_end_step is None):
-      pruning = False
-    else:
-      pruning = True
-
-    if pruning:
-      # Instantiate hook
-      model_pruning_hook = train_hooks.ModelPruningHook(
-          target_sparsity=FLAGS.sparsity,
-          start_step=FLAGS.pruning_start_step,
-          end_step=FLAGS.pruning_end_step
-      )
-      hooks = [model_pruning_hook]
-    else:
-      hooks = None
     train_spec, eval_specs = model_lib.create_train_and_eval_specs(
         train_input_fn,
         eval_input_fns,
         eval_on_train_input_fn,
         predict_input_fn,
         train_steps,
-        eval_on_train_data=False,
-        hooks=hooks)
+        eval_on_train_data=False)
 
     # Currently only a single Eval Spec is allowed.
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0])
