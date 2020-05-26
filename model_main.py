@@ -69,19 +69,19 @@ def main(unused_argv):
   if (FLAGS.sparsity is None) and (FLAGS.pruning_start_step is None) and \
     (FLAGS.pruning_end_step is None):
       pruning = False
-    else:
-      pruning = True
+  else:
+    pruning = True
 
-    if pruning:
-      # Instantiate hook
-      model_pruning_hook = train_hooks.ModelPruningHook(
-          target_sparsity=FLAGS.sparsity,
-          start_step=FLAGS.pruning_start_step,
-          end_step=FLAGS.pruning_end_step
-      )
-      hooks = [model_pruning_hook]
-    else:
-      hooks = None
+  if pruning:
+    # Instantiate hook
+    model_pruning_hook = train_hooks.ModelPruningHook(
+        target_sparsity=FLAGS.sparsity,
+        start_step=FLAGS.pruning_start_step,
+        end_step=FLAGS.pruning_end_step
+    )
+    hooks = [model_pruning_hook]
+  else:
+    hooks = None
 
   train_and_eval_dict = model_lib.create_estimator_and_inputs(
       run_config=config,
