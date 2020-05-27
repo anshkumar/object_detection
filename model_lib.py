@@ -517,7 +517,8 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
             keep_checkpoint_every_n_hours=keep_checkpoint_every_n_hours,
             save_relative_paths=True)
         tf.add_to_collection(tf.GraphKeys.SAVERS, saver)
-        scaffold = tf.train.Scaffold(saver=saver)
+        local_init_op = tf.global_variables_initializer()
+        scaffold = tf.train.Scaffold(saver=saver, local_init_op=local_init_op)
       return tf.estimator.EstimatorSpec(
           mode=mode,
           predictions=detections,
