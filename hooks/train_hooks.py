@@ -35,6 +35,7 @@ class ModelPruningHook(tf.train.SessionRunHook):
     """
     self.global_step_tensor = tf.train.get_global_step()
     self.mask_update_op = self._get_mask_update_op()
+    tf.global_variables_initializer()
 
   def after_run(self, run_context, run_values):
     """Called after each call to run().
