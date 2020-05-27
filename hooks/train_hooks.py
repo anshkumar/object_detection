@@ -33,7 +33,7 @@ class ModelPruningHook(tf.train.SessionRunHook):
     can not modify the graph anymore. Second call of `begin()` on the same
     graph, should not change the graph.
     """
-    self.global_step_tensor = tf.contrib.framework.get_or_create_global_step()
+    self.global_step_tensor = tf.train.get_global_step()
     self.mask_update_op = self._get_mask_update_op()
 
   def after_run(self, run_context, run_values):
