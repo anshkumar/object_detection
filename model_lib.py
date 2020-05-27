@@ -227,7 +227,7 @@ def provide_groundtruth(model, labels):
 
 
 def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
-                    postprocess_on_cpu=False, hooks=None):
+                    postprocess_on_cpu=False):
   """Creates a model function for `Estimator`.
 
   Args:
@@ -526,8 +526,7 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
           train_op=train_op,
           eval_metric_ops=eval_metric_ops,
           export_outputs=export_outputs,
-          scaffold=scaffold,
-          training_hooks=hooks)
+          scaffold=scaffold)
 
   return model_fn
 
@@ -548,7 +547,6 @@ def create_estimator_and_inputs(run_config,
                                 save_final_config=False,
                                 postprocess_on_cpu=False,
                                 export_to_tpu=None,
-                                hooks=None,
                                 **kwargs):
   """Creates `Estimator`, input functions, and steps.
 
@@ -682,7 +680,7 @@ def create_estimator_and_inputs(run_config,
   tf.logging.info('create_estimator_and_inputs: use_tpu %s, export_to_tpu %s',
                   use_tpu, export_to_tpu)
   model_fn = model_fn_creator(detection_model_fn, configs, hparams, use_tpu,
-                              postprocess_on_cpu, hooks=hooks)
+                              postprocess_on_cpu)
   if use_tpu_estimator:
     estimator = tf.contrib.tpu.TPUEstimator(
         model_fn=model_fn,
@@ -719,7 +717,8 @@ def create_train_and_eval_specs(train_input_fn,
                                 train_steps,
                                 eval_on_train_data=False,
                                 final_exporter_name='Servo',
-                                eval_spec_names=None):
+                                eval_spec_names=None,
+                                hooks=None):
   """Creates a `TrainSpec` and `EvalSpec`s.
 
   Args:
@@ -741,7 +740,7 @@ def create_train_and_eval_specs(train_input_fn,
     rest EvalSpecs in the list are evaluation datas.
   """
   train_spec = tf.estimator.TrainSpec(
-      input_fn=train_input_fn, max_steps=train_steps)
+      input_fn=train_input_fn, max_steps=train_steps, hooks=hooks)
 
   if eval_spec_names is None:
     eval_spec_names = [str(i) for i in range(len(eval_input_fns))]
@@ -767,7 +766,8 @@ def create_train_and_eval_specs(train_input_fn,
   if eval_on_train_data:
     eval_specs.append(
         tf.estimator.EvalSpec(
-            name='eval_on_train', input_fn=eval_on_train_input_fn, steps=None))
+            name='eval_on_train', input_fn=eval_on_train_input_fn, steps=None,
+            hooks=hooks))
 
   return train_spec, eval_specs
 
