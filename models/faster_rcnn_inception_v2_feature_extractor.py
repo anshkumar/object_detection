@@ -137,14 +137,14 @@ class FasterRCNNInceptionV2FeatureExtractor(
         with _batch_norm_arg_scope([self.conv2d, slim.separable_conv2d],
                                    batch_norm_scale=True,
                                    train_batch_norm=self._train_batch_norm):
-          inception_v2.inception_v2_arg_scope()
-          _, activations = inception_v2.inception_v2_base(
-              preprocessed_inputs,
-              final_endpoint='Mixed_4e',
-              min_depth=self._min_depth,
-              depth_multiplier=self._depth_multiplier,
-              scope=scope,
-              use_masked_conv2d=self.use_masked_conv2d)
+          with slim.arg_scope(inception_v2.masked_inception_v2_arg_scope()):
+            _, activations = inception_v2.inception_v2_base(
+                preprocessed_inputs,
+                final_endpoint='Mixed_4e',
+                min_depth=self._min_depth,
+                depth_multiplier=self._depth_multiplier,
+                scope=scope,
+                use_masked_conv2d=self.use_masked_conv2d)
 
     return activations['Mixed_4e'], activations
 
