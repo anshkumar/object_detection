@@ -451,17 +451,6 @@ def _export_inference_graph(input_type,
       clear_devices=True,
       initializer_nodes='')
 
-  if pruning:
-    # Get prunned graphDef
-    final_graph_def = strip_pruning_vars_lib.strip_pruning_vars_fn(
-        frozen_graph_def, output_node_names)
-
-    saved_model_path_pruned = os.path.join(saved_model_path,
-                                        'pruned')
-
-    write_saved_model(saved_model_path_pruned, final_graph_def,
-                  placeholder_tensor, outputs)
-
   write_graph_and_checkpoint(
       inference_graph_def=tf.get_default_graph().as_graph_def(),
       model_path=model_path,
@@ -478,6 +467,17 @@ def _export_inference_graph(input_type,
 
   write_saved_model(saved_model_path, frozen_graph_def,
                     placeholder_tensor, outputs)
+  
+  if pruning:
+    # Get prunned graphDef
+    final_graph_def = strip_pruning_vars_lib.strip_pruning_vars_fn(
+        frozen_graph_def, [*outputs.keys()])
+
+    saved_model_path_pruned = os.path.join(saved_model_path,
+                                        'pruned')
+
+    write_saved_model(saved_model_path_pruned, final_graph_def,
+                  placeholder_tensor, outputs)
 
 
 def export_inference_graph(input_type,
