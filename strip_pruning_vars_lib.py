@@ -62,7 +62,8 @@ def _get_masked_weights(input_graph_def):
         if 'masked_weight' in node.name:
           masked_weight_val = sess.run(
               sess.graph.get_tensor_by_name(_tensor_name(node.name)),
-              feed_dict={"image_tensor:0": np.zeros((1,1,1,1))})
+              feed_dict={"image_tensor:0": 
+              np.random.randint(255, size=(1, 300, 300, 3)).astype(np.uint8)})
           logging.info(
               '%s has %d values, %1.2f%% zeros \n', node.name,
               np.size(masked_weight_val),
