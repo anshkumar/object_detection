@@ -440,15 +440,8 @@ def _export_inference_graph(input_type,
   else:
     output_node_names = ','.join(outputs.keys())
 
-  if pruning:
-    # Get prunned graphDef
-    final_graph_def = strip_pruning_vars_lib.strip_pruning_vars_fn(
-        tf.get_default_graph().as_graph_def(), output_node_names)
-  else:
-    final_graph_def = tf.get_default_graph().as_graph_def()
-
   frozen_graph_def = freeze_graph.freeze_graph_with_def_protos(
-      input_graph_def=final_graph_def,
+      input_graph_def=tf.get_default_graph().as_graph_def(),
       input_saver_def=input_saver_def,
       input_checkpoint=checkpoint_to_use,
       output_node_names=output_node_names,
@@ -458,13 +451,24 @@ def _export_inference_graph(input_type,
       clear_devices=True,
       initializer_nodes='')
 
+  if pruning:
+    # Get prunned graphDef
+    final_graph_def = strip_pruning_vars_lib.strip_pruning_vars_fn(
+        frozen_graph_def, output_node_names)
+
+    saved_model_path_pruned = os.path.join(saved_model_path,
+                                        'pruned')
+
+    write_saved_model(saved_model_path_pruned, final_graph_def,
+                  placeholder_tensor, outputs)
+
   write_graph_and_checkpoint(
-      inference_graph_def=final_graph_def,
+      inference_graph_def=tf.get_default_graph().as_graph_def(),
       model_path=model_path,
       input_saver_def=input_saver_def,
       trained_checkpoint_prefix=checkpoint_to_use)
   if write_inference_graph:
-    inference_graph_def = final_graph_def
+    inference_graph_def = tf.get_default_graph().as_graph_def()
     inference_graph_path = os.path.join(output_directory,
                                         'inference_graph.pbtxt')
     for node in inference_graph_def.node:
