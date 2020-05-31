@@ -28,6 +28,7 @@ from object_detection.core import matcher
 from object_detection.core import model
 from object_detection.core import standard_fields as fields
 from object_detection.core import target_assigner
+from object_detection.core import losses
 from object_detection.utils import ops
 from object_detection.utils import shape_utils
 from object_detection.utils import variables_helper
@@ -292,6 +293,7 @@ class SSDMetaArch(model.DetectionModel):
                localization_loss,
                classification_loss_weight,
                localization_loss_weight,
+               mask_prediction_loss_weight,
                normalize_loss_by_num_matches,
                hard_example_miner,
                target_assigner_instance,
@@ -436,6 +438,8 @@ class SSDMetaArch(model.DetectionModel):
     self._localization_loss = localization_loss
     self._classification_loss_weight = classification_loss_weight
     self._localization_loss_weight = localization_loss_weight
+    self._mask_loss = losses.WeightedSigmoidClassificationLoss()
+    self._mask_loss_weight = mask_prediction_loss_weight
     self._normalize_loss_by_num_matches = normalize_loss_by_num_matches
     self._normalize_loc_loss_by_codesize = normalize_loc_loss_by_codesize
     self._hard_example_miner = hard_example_miner
@@ -995,8 +999,123 @@ class SSDMetaArch(model.DetectionModel):
           'Loss/classification_loss': classification_loss
       }
 
+      ######################################################################
+      second_stage_mask_loss = None
+      prediction_masks = prediction_dict['mask_predictions']
+      if prediction_masks is not None:
+        if self.groundtruth_has_field(fields.BoxListFields.masks):
+          raise ValueError('Groundtruth instance masks not provided. '
+                           'Please configure input reader.')
+      groundtruth_boxlists = [
+          box_list.BoxList(boxes) for boxes in \
+          self.groundtruth_lists(fields.BoxListFields.boxes)
+      ]
+      # train_using_confidences = (self._is_training and
+      #                            self._use_confidences_as_targets)
+      # if self._add_background_class:
+      #   groundtruth_classes_with_background_list = [
+      #       tf.pad(one_hot_encoding, [[0, 0], [1, 0]], mode='CONSTANT')
+      #       for one_hot_encoding in \
+      #       self.groundtruth_lists(fields.BoxListFields.classes)
+      #   ]
+      #   if train_using_confidences:
+      #     groundtruth_confidences_with_background_list = [
+      #         tf.pad(groundtruth_confidences, [[0, 0], [1, 0]], mode='CONSTANT')
+      #         for groundtruth_confidences in groundtruth_confidences_list
+      #     ]
+      # else:
+      #   groundtruth_classes_with_background_list = \
+      #   self.groundtruth_lists(fields.BoxListFields.classes)
+      
+      # if not self._is_training:
+      #     (proposal_boxes, proposal_boxlists,
+      #      batch_cls_targets_with_background
+      #     ) = self._get_mask_proposal_boxes_and_classes(
+      #         self.anchors, true_image_shapes,
+      #         groundtruth_boxlists,
+      #         groundtruth_confidences_with_background_list,
+      #         weights)
+
+      unmatched_mask_label = tf.zeros(true_image_shapes[1:3], dtype=tf.float32)
+      (batch_mask_targets, _, _, batch_mask_target_weights,
+         _) = target_assigner.batch_assign_targets(
+          self._target_assigner,
+          self.anchors,
+          groundtruth_boxlists,
+          self.groundtruth_has_field(fields.BoxListFields.masks),
+          unmatched_mask_label,
+          weights)
+
+      # mask_height = shape_utils.get_dim_as_int(prediction_masks.shape[3])
+      # mask_width = shape_utils.get_dim_as_int(prediction_masks.shape[4])
+      # reshaped_prediction_masks = tf.reshape(
+      #     prediction_masks,
+      #     [batch_size, -1, mask_height * mask_width])
+
+      # batch_mask_targets_shape = tf.shape(batch_mask_targets)
+
+      mask_losses = self._mask_loss(
+            prediction_masks,
+            batch_mask_targets,
+            weights=batch_mask_target_weights,
+            losses_mask=losses_mask)
+      total_mask_loss = tf.reduce_sum(mask_losses)
+
+      mask_loss = tf.multiply((self._mask_loss_weight /
+                                       normalizer),
+                                      total_mask_loss,
+                                      name='mask_loss')
+
+      loss_dict['Loss/mask_loss'] = mask_loss
 
     return loss_dict
+
+  def _get_mask_proposal_boxes_and_classes(
+      self, detection_boxes, image_shape, groundtruth_boxlists, 
+      groundtruth_classes_with_background_list, groundtruth_weights_list):
+    """Returns proposal boxes and class targets to compute evaluation mask loss.
+
+    During evaluation, detection boxes are used to extract features for mask
+    prediction. Therefore, to compute mask loss during evaluation detection
+    boxes must be used to compute correct class and mask targets. This function
+    returns boxes and classes in the correct format for computing mask targets
+    during evaluation.
+
+    Args:
+      detection_boxes: A 3-D float tensor of shape [batch, max_detection_boxes,
+        4] containing detection boxes in normalized co-ordinates.
+      image_shape: A 1-D tensor of shape [4] containing image tensor shape.
+      groundtruth_boxes_list: A list of groundtruth boxlists.
+      groundtruth_classes_list: A list of groundtruth classes.
+      groundtruth_weights_list: A list of groundtruth weights.
+    Return:
+      mask_proposal_boxes: detection boxes to use for mask proposals in absolute
+        co-ordinates.
+      mask_proposal_boxlists: `mask_proposal_boxes` in a list of BoxLists in
+        absolute co-ordinates.
+      mask_proposal_one_hot_flat_cls_targets_with_background: Class targets
+        computed using detection boxes.
+    """
+    
+    batch, max_num_detections, _ = detection_boxes.shape.as_list()
+    proposal_boxes = tf.reshape(box_list_ops.to_absolute_coordinates(
+        box_list.BoxList(tf.reshape(detection_boxes, [-1, 4])), image_shape[1],
+        image_shape[2]).get(), [batch, max_num_detections, 4])
+    proposal_boxlists = [
+        box_list.BoxList(detection_boxes_single_image)
+        for detection_boxes_single_image in tf.unstack(proposal_boxes)
+    ]
+    (batch_cls_targets_with_background, _, _, _,
+     _) = target_assigner.batch_assign_targets(
+         target_assigner=self._target_assigner,
+         anchors_batch=proposal_boxlists,
+         gt_box_batch=groundtruth_boxlists,
+         gt_class_targets_batch=groundtruth_classes_with_background_list,
+         unmatched_class_label=self._unmatched_class_label,
+         gt_weights_batch=groundtruth_weights_list)
+
+    return (proposal_boxes, proposal_boxlists, 
+      batch_cls_targets_with_background)
 
   def _minibatch_subsample_fn(self, inputs):
     """Randomly samples anchors for one image.

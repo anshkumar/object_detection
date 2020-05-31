@@ -305,6 +305,7 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
       localization_loss=localization_loss,
       classification_loss_weight=classification_weight,
       localization_loss_weight=localization_weight,
+      mask_prediction_loss_weight=ssd_config.loss.mask_prediction_loss_weight,
       normalize_loss_by_num_matches=normalize_loss_by_num_matches,
       hard_example_miner=hard_example_miner,
       target_assigner_instance=target_assigner_instance,

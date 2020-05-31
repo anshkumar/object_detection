@@ -61,6 +61,10 @@ message Loss {
   // Only applies if expected_loss_weights is not NONE.
   // TODO(birdbrain): Move under ExpectedLossWeights.
   optional float desired_negative_sampling_ratio = 20 [default=3];
+
+  // Instance mask loss weight. Note that this is only applicable
+  // when configured to predict instance masks.
+  optional mask_prediction_loss_weight = 21 [default=4]
 }
 
 // Configuration for bounding box localization loss function.
