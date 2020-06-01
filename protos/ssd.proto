@@ -147,7 +147,7 @@ message Ssd {
   // Force the use of matrix multiplication based crop and resize instead of
   // standard tf.image.crop_and_resize while computing second stage input
   // feature maps.
-  optional bool use_matmul_crop_and_resize = 26 [default = false];
+  optional bool use_matmul_crop_and_resize = 27 [default = false];
 }
 
 message SsdFeatureExtractor {
