@@ -64,7 +64,7 @@ message Loss {
 
   // Instance mask loss weight. Note that this is only applicable
   // when configured to predict instance masks.
-  optional mask_prediction_loss_weight = 21 [default=4]
+  optional bool mask_prediction_loss_weight = 21 [default=4]
 }
 
 // Configuration for bounding box localization loss function.
