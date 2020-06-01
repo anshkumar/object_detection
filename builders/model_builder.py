@@ -291,6 +291,10 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
   ssd_meta_arch_fn = ssd_meta_arch.SSDMetaArch
   kwargs = {}
 
+  crop_and_resize_fn = (
+      ops.matmul_crop_and_resize if ssd_config.use_matmul_crop_and_resize
+      else ops.native_crop_and_resize)
+
   return ssd_meta_arch_fn(
       is_training=is_training,
       anchor_generator=anchor_generator,
@@ -322,6 +326,7 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
       equalization_loss_config=equalization_loss_config,
       return_raw_detections_during_predict=(
           ssd_config.return_raw_detections_during_predict),
+      crop_and_resize_fn=crop_and_resize_fn,
       **kwargs)
 
 

@@ -309,6 +309,7 @@ class SSDMetaArch(model.DetectionModel):
                implicit_example_weight=0.5,
                equalization_loss_config=None,
                return_raw_detections_during_predict=False,
+               crop_and_resize_fn=None,
                nms_on_host=True):
     """SSDMetaArch Constructor.
 
@@ -462,6 +463,8 @@ class SSDMetaArch(model.DetectionModel):
     self._return_raw_detections_during_predict = (
         return_raw_detections_during_predict)
     self._nms_on_host = nms_on_host
+
+    self._crop_and_resize_fn = crop_and_resize_fn
 
   @property
   def anchors(self):
@@ -1001,9 +1004,11 @@ class SSDMetaArch(model.DetectionModel):
 
       ######################################################################
       second_stage_mask_loss = None
+      # prediction_masks.get_shape().as_list()
+      # [6, 8324, 1, 15, 15]
       prediction_masks = prediction_dict['mask_predictions']
       if prediction_masks is not None:
-        if self.groundtruth_has_field(fields.BoxListFields.masks):
+        if not self.groundtruth_has_field(fields.BoxListFields.masks):
           raise ValueError('Groundtruth instance masks not provided. '
                            'Please configure input reader.')
       groundtruth_boxlists = [
@@ -1036,28 +1041,67 @@ class SSDMetaArch(model.DetectionModel):
       #         groundtruth_confidences_with_background_list,
       #         weights)
 
-      unmatched_mask_label = tf.zeros(true_image_shapes[1:3], dtype=tf.float32)
+      unmatched_mask_label = tf.zeros(true_image_shapes[0,:2], dtype=tf.float32)
+      # batch_mask_targets.get_shape().as_list()
+      # [6, 8324, 600, 600]
+      # batch_mask_target_weights.get_shape().as_list()
+      # [6, 8324]
       (batch_mask_targets, _, _, batch_mask_target_weights,
          _) = target_assigner.batch_assign_targets(
           self._target_assigner,
           self.anchors,
           groundtruth_boxlists,
-          self.groundtruth_has_field(fields.BoxListFields.masks),
+          self.groundtruth_lists(fields.BoxListFields.masks),
           unmatched_mask_label,
           weights)
 
-      # mask_height = shape_utils.get_dim_as_int(prediction_masks.shape[3])
-      # mask_width = shape_utils.get_dim_as_int(prediction_masks.shape[4])
-      # reshaped_prediction_masks = tf.reshape(
-      #     prediction_masks,
-      #     [batch_size, -1, mask_height * mask_width])
+      # mask_width = 15
+      # mask_height = 15
+      mask_height = shape_utils.get_dim_as_int(prediction_masks.shape[3])
+      mask_width = shape_utils.get_dim_as_int(prediction_masks.shape[4])
+      batch_size = shape_utils.get_dim_as_int(prediction_masks.shape[0])
+      # reshaped_prediction_masks.get_shape().as_list()
+      # [6, 8324, 225]
+      reshaped_prediction_masks = tf.reshape(
+          prediction_masks,
+          [batch_size, -1, mask_height * mask_width])
 
-      # batch_mask_targets_shape = tf.shape(batch_mask_targets)
+      batch_mask_targets_shape = tf.shape(batch_mask_targets)
+
+      # flat_gt_masks.get_shape().as_list()
+      # [49944, 600, 600]
+      flat_gt_masks = tf.reshape(batch_mask_targets,
+                                   [-1, batch_mask_targets_shape[2],
+                                    batch_mask_targets_shape[3]])
+
+      image_shape = true_image_shapes[0,:2]
+
+      # flat_normalized_proposals.get_shape().as_list()
+      # [49944, 4]
+      flat_normalized_proposals = box_list_ops.to_normalized_coordinates(
+            box_list.BoxList(
+              tf.reshape(prediction_dict['box_encodings'], [-1, 4])),
+            image_shape[0], image_shape[1], check_range=False).get()
+
+      # flat_cropped_gt_mask.get_shape().as_list()
+      # [49944, 1, 15, 15, 1]
+      flat_cropped_gt_mask = self._crop_and_resize_fn(
+            tf.expand_dims(flat_gt_masks, -1),
+            tf.expand_dims(flat_normalized_proposals, axis=1),
+            [mask_height, mask_width])
+
+      flat_cropped_gt_mask = tf.stop_gradient(flat_cropped_gt_mask)
+
+      # batch_cropped_gt_mask.get_shape().as_list()
+      # [6, 8324, 225]
+      batch_cropped_gt_mask = tf.reshape(
+            flat_cropped_gt_mask,
+            [batch_size, -1, mask_height * mask_width])
 
       mask_losses = self._mask_loss(
-            prediction_masks,
-            batch_mask_targets,
-            weights=batch_mask_target_weights,
+            reshaped_prediction_masks,
+            batch_cropped_gt_mask,
+            weights=tf.expand_dims(batch_mask_target_weights, axis=-1),
             losses_mask=losses_mask)
       total_mask_loss = tf.reduce_sum(mask_losses)
 

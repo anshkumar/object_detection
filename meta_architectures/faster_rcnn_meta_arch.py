@@ -2479,6 +2479,11 @@ class FasterRCNNMetaArch(model.DetectionModel):
               groundtruth_boxlists, groundtruth_classes_with_background_list,
               groundtruth_weights_list)
         unmatched_mask_label = tf.zeros(image_shape[1:3], dtype=tf.float32)
+
+        # batch_mask_targets.get_shape().as_list()
+        # [1, 300, 600, 600]
+        # batch_mask_target_weights.get_shape().as_list()
+        # [1, 300]
         (batch_mask_targets, _, _, batch_mask_target_weights,
          _) = target_assigner.batch_assign_targets(
              target_assigner=self._detector_target_assigner,
@@ -2490,6 +2495,9 @@ class FasterRCNNMetaArch(model.DetectionModel):
 
         # Pad the prediction_masks with to add zeros for background class to be
         # consistent with class predictions.
+
+        # prediction_masks.get_shape()
+        # TensorShape([Dimension(300), Dimension(1), Dimension(15), Dimension(15)])
         if prediction_masks.get_shape().as_list()[1] == 1:
           # Class agnostic masks or masks for one-class prediction. Logic for
           # both cases is the same since background predictions are ignored
@@ -2504,20 +2512,32 @@ class FasterRCNNMetaArch(model.DetectionModel):
 
         mask_height = shape_utils.get_dim_as_int(prediction_masks.shape[2])
         mask_width = shape_utils.get_dim_as_int(prediction_masks.shape[3])
+        # reshaped_prediction_masks.get_shape().as_list()
+        # [1, 300, 225]
         reshaped_prediction_masks = tf.reshape(
             prediction_masks_masked_by_class_targets,
             [batch_size, -1, mask_height * mask_width])
 
+        # batch_mask_targets.get_shape().as_list()
+        # [1, 300, 600, 600]
         batch_mask_targets_shape = tf.shape(batch_mask_targets)
+        # flat_gt_masks.get_shape().as_list()
+        # [300, 600, 600]
         flat_gt_masks = tf.reshape(batch_mask_targets,
                                    [-1, batch_mask_targets_shape[2],
                                     batch_mask_targets_shape[3]])
 
         # Use normalized proposals to crop mask targets from image masks.
+        # flat_normalized_proposals.get_shape().as_list()
+        # [300, 4]
         flat_normalized_proposals = box_list_ops.to_normalized_coordinates(
             box_list.BoxList(tf.reshape(proposal_boxes, [-1, 4])),
             image_shape[1], image_shape[2], check_range=False).get()
 
+        # flat_cropped_gt_mask.get_shape().as_list()
+        # [300, 1, 15, 15, 1]
+        # Here cropping the mask from the overall image to an individual contour 
+        # size, for an example, a mask from 600x600 to 15x15
         flat_cropped_gt_mask = self._crop_and_resize_fn(
             tf.expand_dims(flat_gt_masks, -1),
             tf.expand_dims(flat_normalized_proposals, axis=1),
@@ -2529,13 +2549,20 @@ class FasterRCNNMetaArch(model.DetectionModel):
         # upstream of flat_cropped_gt_mask.
         flat_cropped_gt_mask = tf.stop_gradient(flat_cropped_gt_mask)
 
+        # batch_cropped_gt_mask.get_shape().as_list()
+        # [1, 300, 225]
         batch_cropped_gt_mask = tf.reshape(
             flat_cropped_gt_mask,
             [batch_size, -1, mask_height * mask_width])
 
+        # mask_losses_weights.get_shape().as_list()
+        # [1, 300]
         mask_losses_weights = (
             batch_mask_target_weights * tf.cast(paddings_indicator,
                                                 dtype=tf.float32))
+
+        # tf.expand_dims(mask_losses_weights, axis=-1).get_shape().as_list()
+        # [1, 300, 1]
         mask_losses = self._second_stage_mask_loss(
             reshaped_prediction_masks,
             batch_cropped_gt_mask,
