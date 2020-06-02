@@ -1006,8 +1006,9 @@ class SSDMetaArch(model.DetectionModel):
       second_stage_mask_loss = None
       # prediction_masks.get_shape().as_list()
       # [6, 8324, 1, 15, 15]
-      prediction_masks = prediction_dict['mask_predictions']
-      if prediction_masks is not None:
+      
+      if 'mask_predictions' in prediction_dict:
+        prediction_masks = prediction_dict['mask_predictions']
         if not self.groundtruth_has_field(fields.BoxListFields.masks):
           raise ValueError('Groundtruth instance masks not provided. '
                            'Please configure input reader.')
