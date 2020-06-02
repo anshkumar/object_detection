@@ -87,7 +87,7 @@ message ConvolutionalBoxPredictor {
 
   // The number of convolutions applied to image_features in the mask prediction
   // branch.
-  optional bool masks_are_class_agnostic = 20 [default = false];
+  optional bool masks_are_class_agnostic = 20 [default = true];
 }
 
 // Configuration proto for weight shared convolutional box predictor.
