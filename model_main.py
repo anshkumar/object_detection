@@ -112,9 +112,7 @@ def main(unused_argv):
           end_step=FLAGS.pruning_end_step
       )
       hooks = [model_pruning_hook]
-    else:
-      hooks = None
-    train_spec, eval_specs = model_lib.create_train_and_eval_specs(
+      train_spec, eval_specs = model_lib.create_train_and_eval_specs(
         train_input_fn,
         eval_input_fns,
         eval_on_train_input_fn,
@@ -122,6 +120,15 @@ def main(unused_argv):
         train_steps,
         eval_on_train_data=False,
         hooks=hooks)
+    else:
+      train_spec, eval_specs = model_lib.create_train_and_eval_specs(
+        train_input_fn,
+        eval_input_fns,
+        eval_on_train_input_fn,
+        predict_input_fn,
+        train_steps,
+        eval_on_train_data=False)
+
 
     # Currently only a single Eval Spec is allowed.
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0])

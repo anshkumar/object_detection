@@ -739,8 +739,12 @@ def create_train_and_eval_specs(train_input_fn,
     True, the last `EvalSpec` in the list will correspond to training data. The
     rest EvalSpecs in the list are evaluation datas.
   """
-  train_spec = tf.estimator.TrainSpec(
-      input_fn=train_input_fn, max_steps=train_steps, hooks=hooks)
+  if hooks is None:
+    train_spec = tf.estimator.TrainSpec(
+        input_fn=train_input_fn, max_steps=train_steps)
+  else:
+    train_spec = tf.estimator.TrainSpec(
+        input_fn=train_input_fn, max_steps=train_steps, hooks=hooks)
 
   if eval_spec_names is None:
     eval_spec_names = [str(i) for i in range(len(eval_input_fns))]
