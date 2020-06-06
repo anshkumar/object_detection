@@ -54,7 +54,12 @@ def build_convolutional_box_predictor(is_training,
                                       mask_use_depthwise=False,
                                       mask_height=15,
                                       mask_width=15,
-                                      masks_are_class_agnostic=False):
+                                      masks_are_class_agnostic=False,
+                                      feature_extractor=None,
+                                      crop_and_resize_fn=None,
+                                      initial_crop_size=None,
+                                      maxpool_kernel_size=None,
+                                      maxpool_stride=None):
   """Builds the ConvolutionalBoxPredictor from the arguments.
 
   Args:
@@ -132,7 +137,12 @@ def build_convolutional_box_predictor(is_training,
       conv_hyperparams_fn=conv_hyperparams_fn,
       num_layers_before_predictor=num_layers_before_predictor,
       min_depth=min_depth,
-      max_depth=max_depth)
+      max_depth=max_depth,
+      feature_extractor=feature_extractor,
+      crop_and_resize_fn=crop_and_resize_fn,
+      initial_crop_size=initial_crop_size,
+      maxpool_kernel_size=maxpool_kernel_size,
+      maxpool_stride=maxpool_stride)
 
 
 def build_convolutional_keras_box_predictor(is_training,
@@ -676,7 +686,7 @@ BoxEncodingsClipRange = collections.namedtuple('BoxEncodingsClipRange',
 
 
 def build(argscope_fn, box_predictor_config, is_training, num_classes,
-          add_background_class=True):
+          feature_extractor, crop_and_resize_fn, add_background_class=True):
   """Builds box predictor based on the configuration.
 
   Builds box predictor based on the configuration. See box_predictor.proto for
@@ -741,7 +751,12 @@ def build(argscope_fn, box_predictor_config, is_training, num_classes,
         mask_use_depthwise=config_box_predictor.mask_use_depthwise,
         mask_height=config_box_predictor.mask_height,
         mask_width=config_box_predictor.mask_width,
-        masks_are_class_agnostic=config_box_predictor.masks_are_class_agnostic)
+        masks_are_class_agnostic=config_box_predictor.masks_are_class_agnostic,
+        feature_extractor=feature_extractor,
+        crop_and_resize_fn=crop_and_resize_fn,
+        initial_crop_size=config_box_predictor.initial_crop_size,
+        maxpool_kernel_size=config_box_predictor.maxpool_kernel_size,
+        maxpool_stride=config_box_predictor.maxpool_stride)
 
   if  box_predictor_oneof == 'weight_shared_convolutional_box_predictor':
     config_box_predictor = (

@@ -59,7 +59,12 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
                conv_hyperparams_fn,
                num_layers_before_predictor,
                min_depth,
-               max_depth):
+               max_depth,
+               feature_extractor,
+               crop_and_resize_fn,
+               initial_crop_size,
+               maxpool_kernel_size,
+               maxpool_stride):
     """Constructor.
 
     Args:
@@ -93,10 +98,86 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
     self._min_depth = min_depth
     self._max_depth = max_depth
     self._num_layers_before_predictor = num_layers_before_predictor
+    self._feature_extractor = feature_extractor
+    self._crop_and_resize_fn = crop_and_resize_fn
+    self._initial_crop_size = initial_crop_size
+    self._maxpool_kernel_size = maxpool_kernel_size
+    self._maxpool_stride = maxpool_stride
+    # If max pooling is to be used, build the layer
+    if maxpool_kernel_size:
+      self._maxpool_layer = tf.keras.layers.MaxPooling2D(
+          [self._maxpool_kernel_size, self._maxpool_kernel_size],
+          strides=self._maxpool_stride,
+          name='MaxPool2D')
+    self._feature_extractor_for_box_classifier_features = None
 
   @property
   def num_classes(self):
     return self._num_classes
+
+  @property
+  def second_stage_feature_extractor_scope(self):
+    return 'SecondStageFeatureExtractor'
+
+  def _extract_box_classifier_features(self, flattened_feature_maps):
+    if self._feature_extractor_for_box_classifier_features == (
+        _UNINITIALIZED_FEATURE_EXTRACTOR):
+      self._feature_extractor_for_box_classifier_features = (
+          self._feature_extractor.get_box_classifier_feature_extractor_model(
+              name=self.second_stage_feature_extractor_scope))
+
+    if self._feature_extractor_for_box_classifier_features:
+      box_classifier_features = (
+          self._feature_extractor_for_box_classifier_features(
+              flattened_feature_maps))
+    else:
+      box_classifier_features = (
+          self._feature_extractor.extract_box_classifier_features(
+              flattened_feature_maps,
+              scope=self.second_stage_feature_extractor_scope))
+    return box_classifier_features
+
+  def _flatten_first_two_dimensions(self, inputs):
+    """Flattens `K-d` tensor along batch dimension to be a `(K-1)-d` tensor.
+
+    Converts `inputs` with shape [A, B, ..., depth] into a tensor of shape
+    [A * B, ..., depth].
+
+    Args:
+      inputs: A float tensor with shape [A, B, ..., depth].  Note that the first
+        two and last dimensions must be statically defined.
+    Returns:
+      A float tensor with shape [A * B, ..., depth] (where the first and last
+        dimension are statically defined.
+    """
+    combined_shape = shape_utils.combined_static_and_dynamic_shape(inputs)
+    flattened_shape = tf.stack([combined_shape[0] * combined_shape[1]] +
+                               combined_shape[2:])
+    return tf.reshape(inputs, flattened_shape)
+
+  def _compute_second_stage_input_feature_maps(self, features_to_crop,
+                                               proposal_boxes_normalized):
+    """Crops to a set of proposals from the feature map for a batch of images.
+
+    Helper function for self._postprocess_rpn. This function calls
+    `tf.image.crop_and_resize` to create the feature map to be passed to the
+    second stage box classifier for each proposal.
+
+    Args:
+      features_to_crop: A float32 tensor with shape
+        [batch_size, height, width, depth]
+      proposal_boxes_normalized: A float32 tensor with shape [batch_size,
+        num_proposals, box_code_size] containing proposal boxes in
+        normalized coordinates.
+
+    Returns:
+      A float32 tensor with shape [K, new_height, new_width, depth].
+    """
+    cropped_regions = self._flatten_first_two_dimensions(
+        self._crop_and_resize_fn(
+            features_to_crop, proposal_boxes_normalized,
+            [self._initial_crop_size, self._initial_crop_size]))
+    return self._maxpool_layer(cropped_regions)
 
   def _predict(self, image_features, num_predictions_per_location_list):
     """Computes encoded object locations and corresponding confidences.
@@ -151,6 +232,8 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
                             format(depth))
             if depth > 0 and self._num_layers_before_predictor > 0:
               for i in range(self._num_layers_before_predictor):
+                # net.get_shape().as_list()
+                # [1, 38, 38, 576]
                 net = slim.conv2d(
                     net,
                     depth, [1, 1],
@@ -164,12 +247,31 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
                 head_obj = self._box_prediction_head
               elif head_name == CLASS_PREDICTIONS_WITH_BACKGROUND:
                 head_obj = self._class_prediction_head
-              else:
-                head_obj = self._other_heads[head_name]
+              # else:
+              #   head_obj = self._other_heads[head_name]
               prediction = head_obj.predict(
                   features=net,
                   num_predictions_per_location=num_predictions_per_location)
               predictions[head_name].append(prediction)
+            if MASK_PREDICTIONS in sorted_keys:
+              batch_size, num_anchors_i, q, code_size = \
+              predictions[BOX_ENCODINGS][0].get_shape().as_list()
+
+              if q != 1:
+                raise ValueError('mask_predictions for this config not '
+                           'suppoted. ')
+
+              proposal_boxes_normalized = tf.reshape(
+                predictions[BOX_ENCODINGS][0], 
+                (batch_size, num_anchors_i, code_size))
+
+              flattened_proposal_feature_maps = (
+                self._compute_second_stage_input_feature_maps(
+                    net, proposal_boxes_normalized))
+
+              box_classifier_features = self._extract_box_classifier_features(
+                flattened_proposal_feature_maps)
+
     return predictions
 
 

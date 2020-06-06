@@ -88,6 +88,18 @@ message ConvolutionalBoxPredictor {
   // The number of convolutions applied to image_features in the mask prediction
   // branch.
   optional bool masks_are_class_agnostic = 20 [default = true];
+
+  // Output size (width and height are set to be the same) of the initial
+  // bilinear interpolation based cropping during ROI pooling.
+  optional int32 initial_crop_size = 21 [default = 14];
+
+  // Kernel size of the max pool op on the cropped feature map during
+  // ROI pooling.
+  optional int32 maxpool_kernel_size = 22 [default = 2];
+
+  // Stride of the max pool op on the cropped feature map during ROI pooling.
+  optional int32 maxpool_stride = 23 [default = 2];
+
 }
 
 // Configuration proto for weight shared convolutional box predictor.

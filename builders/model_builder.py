@@ -246,6 +246,10 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
       freeze_batchnorm=ssd_config.freeze_batchnorm,
       is_training=is_training)
 
+  crop_and_resize_fn = (
+      ops.matmul_crop_and_resize if ssd_config.use_matmul_crop_and_resize
+      else ops.native_crop_and_resize)
+
   box_coder = box_coder_builder.build(ssd_config.box_coder)
   matcher = matcher_builder.build(ssd_config.matcher)
   region_similarity_calculator = sim_calc.build(
@@ -268,7 +272,8 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
   else:
     ssd_box_predictor = box_predictor_builder.build(
         hyperparams_builder.build, ssd_config.box_predictor, is_training,
-        num_classes, ssd_config.add_background_class)
+        num_classes, feature_extractor, crop_and_resize_fn, 
+        ssd_config.add_background_class)
   image_resizer_fn = image_resizer_builder.build(ssd_config.image_resizer)
   non_max_suppression_fn, score_conversion_fn = post_processing_builder.build(
       ssd_config.post_processing)
@@ -290,10 +295,6 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
 
   ssd_meta_arch_fn = ssd_meta_arch.SSDMetaArch
   kwargs = {}
-
-  crop_and_resize_fn = (
-      ops.matmul_crop_and_resize if ssd_config.use_matmul_crop_and_resize
-      else ops.native_crop_and_resize)
 
   return ssd_meta_arch_fn(
       is_training=is_training,
