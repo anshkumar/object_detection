@@ -200,6 +200,11 @@ message SsdFeatureExtractor {
   // The number of SSD layers.
   optional int32 num_layers = 12 [default = 6];
 
+  // Whether to update batch norm parameters during training or not.
+  // When training with a relative large batch size (e.g. 8), it could be
+  // desirable to enable batch norm update.
+  optional bool batch_norm_trainable = 13 [default=false];
+
 }
 
 // Configuration for Feature Pyramid Networks.
