@@ -28,6 +28,28 @@ from nets.mobilenet import mobilenet_v2
 
 slim = contrib_slim
 
+def _batch_norm_arg_scope(list_ops,
+                          use_batch_norm=True,
+                          batch_norm_decay=0.9997,
+                          batch_norm_epsilon=0.001,
+                          batch_norm_scale=False,
+                          train_batch_norm=False):
+  """Slim arg scope for InceptionV2 batch norm."""
+  if use_batch_norm:
+    batch_norm_params = {
+        'is_training': train_batch_norm,
+        'scale': batch_norm_scale,
+        'decay': batch_norm_decay,
+        'epsilon': batch_norm_epsilon
+    }
+    normalizer_fn = slim.batch_norm
+  else:
+    normalizer_fn = None
+    batch_norm_params = None
+
+  return slim.arg_scope(list_ops,
+                        normalizer_fn=normalizer_fn,
+                        normalizer_params=batch_norm_params)
 
 class SSDMobileNetV2FeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
   """SSD Feature Extractor using MobilenetV2 features."""
@@ -66,6 +88,8 @@ class SSDMobileNetV2FeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
         hyperparameters of the base feature extractor with the one from
         `conv_hyperparams_fn`.
     """
+    self._depth_multiplier = depth_multiplier
+    self._min_depth = min_depth
     super(SSDMobileNetV2FeatureExtractor, self).__init__(
         is_training=is_training,
         depth_multiplier=depth_multiplier,
@@ -139,3 +163,118 @@ class SSDMobileNetV2FeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
               image_features=image_features)
 
     return feature_maps.values()
+
+  def _extract_box_classifier_features(self, proposal_feature_maps, scope):
+    """Extracts second stage box classifier features.
+
+    Args:
+      proposal_feature_maps: A 4-D float tensor with shape
+        [batch_size * self.max_num_proposals, crop_height, crop_width, depth]
+        representing the feature map cropped to each proposal.
+      scope: A scope name (unused).
+
+    Returns:
+      proposal_classifier_features: A 4-D float tensor with shape
+        [batch_size * self.max_num_proposals, height, width, depth]
+        representing box classifier features for each proposal.
+    """
+    net = proposal_feature_maps
+
+    depth = lambda d: max(int(d * self._depth_multiplier), self._min_depth)
+    trunc_normal = lambda stddev: tf.truncated_normal_initializer(0.0, stddev)
+
+    data_format = 'NHWC'
+    concat_dim = 3 if data_format == 'NHWC' else 1
+
+    with tf.variable_scope('InceptionV2', reuse=self._reuse_weights):
+      with slim.arg_scope(
+          [self.conv2d, slim.max_pool2d, slim.avg_pool2d],
+          stride=1,
+          padding='SAME',
+          data_format=data_format):
+        with _batch_norm_arg_scope([self.conv2d, slim.separable_conv2d],
+                                   batch_norm_scale=True,
+                                   train_batch_norm=self._train_batch_norm):
+
+          with tf.variable_scope('Mixed_5a'):
+            with tf.variable_scope('Branch_0'):
+              branch_0 = self.conv2d(
+                  net, depth(128), [1, 1],
+                  weights_initializer=trunc_normal(0.09),
+                  scope='Conv2d_0a_1x1')
+              branch_0 = self.conv2d(branch_0, depth(192), [3, 3], stride=2,
+                                     scope='Conv2d_1a_3x3')
+            with tf.variable_scope('Branch_1'):
+              branch_1 = self.conv2d(
+                  net, depth(192), [1, 1],
+                  weights_initializer=trunc_normal(0.09),
+                  scope='Conv2d_0a_1x1')
+              branch_1 = self.conv2d(branch_1, depth(256), [3, 3],
+                                     scope='Conv2d_0b_3x3')
+              branch_1 = self.conv2d(branch_1, depth(256), [3, 3], stride=2,
+                                     scope='Conv2d_1a_3x3')
+            with tf.variable_scope('Branch_2'):
+              branch_2 = slim.max_pool2d(net, [3, 3], stride=2,
+                                         scope='MaxPool_1a_3x3')
+            net = tf.concat([branch_0, branch_1, branch_2], concat_dim)
+
+          with tf.variable_scope('Mixed_5b'):
+            with tf.variable_scope('Branch_0'):
+              branch_0 = self.conv2d(net, depth(352), [1, 1],
+                                     scope='Conv2d_0a_1x1')
+            with tf.variable_scope('Branch_1'):
+              branch_1 = self.conv2d(
+                  net, depth(192), [1, 1],
+                  weights_initializer=trunc_normal(0.09),
+                  scope='Conv2d_0a_1x1')
+              branch_1 = self.conv2d(branch_1, depth(320), [3, 3],
+                                     scope='Conv2d_0b_3x3')
+            with tf.variable_scope('Branch_2'):
+              branch_2 = self.conv2d(
+                  net, depth(160), [1, 1],
+                  weights_initializer=trunc_normal(0.09),
+                  scope='Conv2d_0a_1x1')
+              branch_2 = self.conv2d(branch_2, depth(224), [3, 3],
+                                     scope='Conv2d_0b_3x3')
+              branch_2 = self.conv2d(branch_2, depth(224), [3, 3],
+                                     scope='Conv2d_0c_3x3')
+            with tf.variable_scope('Branch_3'):
+              branch_3 = slim.avg_pool2d(net, [3, 3], scope='AvgPool_0a_3x3')
+              branch_3 = self.conv2d(
+                  branch_3, depth(128), [1, 1],
+                  weights_initializer=trunc_normal(0.1),
+                  scope='Conv2d_0b_1x1')
+            net = tf.concat([branch_0, branch_1, branch_2, branch_3],
+                            concat_dim)
+
+          with tf.variable_scope('Mixed_5c'):
+            with tf.variable_scope('Branch_0'):
+              branch_0 = self.conv2d(net, depth(352), [1, 1],
+                                     scope='Conv2d_0a_1x1')
+            with tf.variable_scope('Branch_1'):
+              branch_1 = self.conv2d(
+                  net, depth(192), [1, 1],
+                  weights_initializer=trunc_normal(0.09),
+                  scope='Conv2d_0a_1x1')
+              branch_1 = self.conv2d(branch_1, depth(320), [3, 3],
+                                     scope='Conv2d_0b_3x3')
+            with tf.variable_scope('Branch_2'):
+              branch_2 = self.conv2d(
+                  net, depth(192), [1, 1],
+                  weights_initializer=trunc_normal(0.09),
+                  scope='Conv2d_0a_1x1')
+              branch_2 = self.conv2d(branch_2, depth(224), [3, 3],
+                                     scope='Conv2d_0b_3x3')
+              branch_2 = self.conv2d(branch_2, depth(224), [3, 3],
+                                     scope='Conv2d_0c_3x3')
+            with tf.variable_scope('Branch_3'):
+              branch_3 = slim.max_pool2d(net, [3, 3], scope='MaxPool_0a_3x3')
+              branch_3 = self.conv2d(
+                  branch_3, depth(128), [1, 1],
+                  weights_initializer=trunc_normal(0.1),
+                  scope='Conv2d_0b_1x1')
+            proposal_classifier_features = tf.concat(
+                [branch_0, branch_1, branch_2, branch_3], concat_dim)
+
+    return proposal_classifier_features
+

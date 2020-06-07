@@ -122,6 +122,29 @@ class SSDFeatureExtractor(object):
     """
     raise NotImplementedError
 
+  def extract_box_classifier_features(self, proposal_feature_maps, scope):
+    """Extracts second stage box classifier features.
+
+    Args:
+      proposal_feature_maps: A 4-D float tensor with shape
+        [batch_size * self.max_num_proposals, crop_height, crop_width, depth]
+        representing the feature map cropped to each proposal.
+      scope: A scope name.
+
+    Returns:
+      proposal_classifier_features: A 4-D float tensor with shape
+        [batch_size * self.max_num_proposals, height, width, depth]
+        representing box classifier features for each proposal.
+    """
+    with tf.variable_scope(
+        scope, values=[proposal_feature_maps], reuse=tf.AUTO_REUSE):
+      return self._extract_box_classifier_features(proposal_feature_maps, scope)
+
+  @abc.abstractmethod
+  def _extract_box_classifier_features(self, proposal_feature_maps, scope):
+    """Extracts second stage box classifier features, to be overridden."""
+    pass
+
   def restore_from_classification_checkpoint_fn(self, feature_extractor_scope):
     """Returns a map of variables to load from a foreign checkpoint.
 

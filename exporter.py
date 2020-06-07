@@ -27,7 +27,7 @@ from object_detection.data_decoders import tf_example_decoder
 from object_detection.utils import config_util
 from object_detection.utils import shape_utils
 
-import strip_pruning_vars_lib
+import object_detection.strip_pruning_vars_lib
 
 slim = tf.contrib.slim
 
@@ -467,7 +467,7 @@ def _export_inference_graph(input_type,
 
   write_saved_model(saved_model_path, frozen_graph_def,
                     placeholder_tensor, outputs)
-  
+
   if pruning:
     # Get prunned graphDef
     final_graph_def = strip_pruning_vars_lib.strip_pruning_vars_fn(

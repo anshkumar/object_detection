@@ -27,6 +27,7 @@ CLASS_PREDICTIONS_WITH_BACKGROUND = (
     box_predictor.CLASS_PREDICTIONS_WITH_BACKGROUND)
 MASK_PREDICTIONS = box_predictor.MASK_PREDICTIONS
 
+_UNINITIALIZED_FEATURE_EXTRACTOR = '__uninitialized__'
 
 class _NoopVariableScope(object):
   """A dummy class that does not push any scope."""
@@ -245,14 +246,19 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
             for head_name in sorted_keys: # ['mask_predictions', 'box_encodings', 'class_predictions_with_background']
               if head_name == BOX_ENCODINGS:
                 head_obj = self._box_prediction_head
-              elif head_name == CLASS_PREDICTIONS_WITH_BACKGROUND:
-                head_obj = self._class_prediction_head
-              # else:
-              #   head_obj = self._other_heads[head_name]
-              prediction = head_obj.predict(
+                prediction = head_obj.predict(
                   features=net,
                   num_predictions_per_location=num_predictions_per_location)
-              predictions[head_name].append(prediction)
+                predictions[head_name].append(prediction)
+              elif head_name == CLASS_PREDICTIONS_WITH_BACKGROUND:
+                head_obj = self._class_prediction_head
+                prediction = head_obj.predict(
+                  features=net,
+                  num_predictions_per_location=num_predictions_per_location)
+                predictions[head_name].append(prediction)
+              # else:
+              #   head_obj = self._other_heads[head_name]
+              
             if MASK_PREDICTIONS in sorted_keys:
               batch_size, num_anchors_i, q, code_size = \
               predictions[BOX_ENCODINGS][0].get_shape().as_list()
