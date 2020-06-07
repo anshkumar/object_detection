@@ -50,7 +50,8 @@ class SSDFeatureExtractor(object):
                use_explicit_padding=False,
                use_depthwise=False,
                num_layers=6,
-               override_base_feature_extractor_hyperparams=False):
+               override_base_feature_extractor_hyperparams=False,
+               batch_norm_trainable=False):
     """Constructor.
 
     Args:
@@ -82,6 +83,7 @@ class SSDFeatureExtractor(object):
     self._num_layers = num_layers
     self._override_base_feature_extractor_hyperparams = (
         override_base_feature_extractor_hyperparams)
+    self._train_batch_norm = (batch_norm_trainable and is_training)
 
   @property
   def is_keras_model(self):

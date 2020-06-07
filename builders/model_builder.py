@@ -185,7 +185,9 @@ def _build_ssd_feature_extractor(feature_extractor_config,
       'use_depthwise':
           use_depthwise,
       'override_base_feature_extractor_hyperparams':
-          override_base_feature_extractor_hyperparams
+          override_base_feature_extractor_hyperparams,
+      'batch_norm_trainable': 
+          feature_extractor_config.batch_norm_trainable
   }
 
   if feature_extractor_config.HasField('replace_preprocessor_with_placeholder'):
