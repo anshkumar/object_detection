@@ -64,7 +64,8 @@ class SSDMobileNetV2FeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
                use_explicit_padding=False,
                use_depthwise=False,
                num_layers=6,
-               override_base_feature_extractor_hyperparams=False):
+               override_base_feature_extractor_hyperparams=False,
+               batch_norm_trainable=False):
     """MobileNetV2 Feature Extractor for SSD Models.
 
     Mobilenet v2 (experimental), designed by sandler@. More details can be found
@@ -90,6 +91,7 @@ class SSDMobileNetV2FeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
     """
     self._depth_multiplier = depth_multiplier
     self._min_depth = min_depth
+    self._train_batch_norm = (batch_norm_trainable and is_training)
     super(SSDMobileNetV2FeatureExtractor, self).__init__(
         is_training=is_training,
         depth_multiplier=depth_multiplier,
