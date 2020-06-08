@@ -278,6 +278,12 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
               box_classifier_features = self._extract_box_classifier_features(
                 flattened_proposal_feature_maps)
 
+              mask_predictions = self._other_heads[MASK_PREDICTIONS].predict(
+                    [box_classifier_features],
+                    num_predictions_per_location=[1])
+              prediction_dict['mask_predictions'].append(
+                tf.squeeze(mask_predictions[MASK_PREDICTIONS], axis=1))
+
     return predictions
 
 
