@@ -281,6 +281,14 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
               mask_predictions = self._other_heads[MASK_PREDICTIONS].predict(
                     features=box_classifier_features,
                     num_predictions_per_location=1)
+
+              batch_size, num_anchors_i, num_classes, mask_height, mask_width =\
+              mask_predictions.get_shape().as_list()
+
+              mask_predictions = tf.reshape(
+                mask_predictions, 
+                (batch_size, -1, num_classes, mask_height, mask_width))
+
               predictions[MASK_PREDICTIONS].append(mask_predictions)
 
     return predictions
