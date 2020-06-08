@@ -100,6 +100,20 @@ message ConvolutionalBoxPredictor {
   // Stride of the max pool op on the cropped feature map during ROI pooling.
   optional int32 maxpool_stride = 23 [default = 2];
 
+  // The depth for the first conv2d_transpose op applied to the
+  // image_features in the mask prediction branch. If set to 0, the value
+  // will be set automatically based on the number of channels in the image
+  // features and the number of classes.
+  optional int32 mask_prediction_conv_depth = 24 [default = 256];
+
+  optional int32 mask_prediction_num_conv_layers = 25 [default = 2];
+
+  // Whether to apply convolutions on mask features before upsampling using
+  // nearest neighbor resizing.
+  // By default, mask features are resized to [`mask_height`, `mask_width`]
+  // before applying convolutions and predicting masks.
+  optional bool convolve_then_upsample_masks = 26 [default = false];
+
 }
 
 // Configuration proto for weight shared convolutional box predictor.

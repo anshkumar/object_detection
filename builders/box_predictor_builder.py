@@ -54,12 +54,15 @@ def build_convolutional_box_predictor(is_training,
                                       mask_use_depthwise=False,
                                       mask_height=15,
                                       mask_width=15,
-                                      masks_are_class_agnostic=False,
                                       feature_extractor=None,
                                       crop_and_resize_fn=None,
                                       initial_crop_size=None,
                                       maxpool_kernel_size=None,
-                                      maxpool_stride=None):
+                                      maxpool_stride=None,
+                                      mask_prediction_num_conv_layers=2,
+                                      mask_prediction_conv_depth=256,
+                                      masks_are_class_agnostic=False,
+                                      convolve_then_upsample_masks=False):
   """Builds the ConvolutionalBoxPredictor from the arguments.
 
   Args:
@@ -118,16 +121,17 @@ def build_convolutional_box_predictor(is_training,
   if predict_instance_masks:
     other_heads[
         convolutional_box_predictor.
-        MASK_PREDICTIONS] = mask_head.ConvolutionalMaskHead(
-            is_training=is_training,
-            num_classes=num_classes + 1 if add_background_class else num_classes,
-            use_dropout=mask_use_dropout,
-            dropout_keep_prob=mask_dropout_keep_prob,
-            kernel_size=mask_kernel_size,
-            use_depthwise=mask_use_depthwise,
+        MASK_PREDICTIONS] = mask_head.MaskRCNNMaskHead(
+            num_classes=num_classes,
+            conv_hyperparams_fn=conv_hyperparams_fn,
             mask_height=mask_height,
             mask_width=mask_width,
-            masks_are_class_agnostic=masks_are_class_agnostic)
+            mask_prediction_num_conv_layers=mask_prediction_num_conv_layers,
+            mask_prediction_conv_depth=mask_prediction_conv_depth,
+            masks_are_class_agnostic=masks_are_class_agnostic,
+            convolve_then_upsample=convolve_then_upsample_masks)
+
+        
   return convolutional_box_predictor.ConvolutionalBoxPredictor(
       is_training=is_training,
       num_classes=num_classes,
@@ -686,7 +690,8 @@ BoxEncodingsClipRange = collections.namedtuple('BoxEncodingsClipRange',
 
 
 def build(argscope_fn, box_predictor_config, is_training, num_classes,
-          feature_extractor, crop_and_resize_fn, add_background_class=True):
+          feature_extractor=None, crop_and_resize_fn=None, 
+          add_background_class=True):
   """Builds box predictor based on the configuration.
 
   Builds box predictor based on the configuration. See box_predictor.proto for
@@ -751,12 +756,18 @@ def build(argscope_fn, box_predictor_config, is_training, num_classes,
         mask_use_depthwise=config_box_predictor.mask_use_depthwise,
         mask_height=config_box_predictor.mask_height,
         mask_width=config_box_predictor.mask_width,
-        masks_are_class_agnostic=config_box_predictor.masks_are_class_agnostic,
         feature_extractor=feature_extractor,
         crop_and_resize_fn=crop_and_resize_fn,
         initial_crop_size=config_box_predictor.initial_crop_size,
         maxpool_kernel_size=config_box_predictor.maxpool_kernel_size,
-        maxpool_stride=config_box_predictor.maxpool_stride)
+        maxpool_stride=config_box_predictor.maxpool_stride,
+        mask_prediction_num_conv_layers=(
+          config_box_predictor.mask_prediction_num_conv_layers),
+        mask_prediction_conv_depth=(
+          config_box_predictor.mask_prediction_conv_depth),
+        masks_are_class_agnostic=config_box_predictor.masks_are_class_agnostic,
+        convolve_then_upsample_masks=(
+          config_box_predictor.convolve_then_upsample_masks))
 
   if  box_predictor_oneof == 'weight_shared_convolutional_box_predictor':
     config_box_predictor = (

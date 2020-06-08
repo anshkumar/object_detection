@@ -261,14 +261,14 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
               
             if MASK_PREDICTIONS in sorted_keys:
               batch_size, num_anchors_i, q, code_size = \
-              predictions[BOX_ENCODINGS][0].get_shape().as_list()
+              predictions[BOX_ENCODINGS][-1].get_shape().as_list()
 
               if q != 1:
                 raise ValueError('mask_predictions for this config not '
                            'suppoted. ')
 
               proposal_boxes_normalized = tf.reshape(
-                predictions[BOX_ENCODINGS][0], 
+                predictions[BOX_ENCODINGS][-1], 
                 (batch_size, num_anchors_i, code_size))
 
               flattened_proposal_feature_maps = (
@@ -279,10 +279,9 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
                 flattened_proposal_feature_maps)
 
               mask_predictions = self._other_heads[MASK_PREDICTIONS].predict(
-                    [box_classifier_features],
-                    num_predictions_per_location=[1])
-              prediction_dict['mask_predictions'].append(
-                tf.squeeze(mask_predictions[MASK_PREDICTIONS], axis=1))
+                    features=box_classifier_features,
+                    num_predictions_per_location=1)
+              predictions[MASK_PREDICTIONS].append(mask_predictions)
 
     return predictions
 
