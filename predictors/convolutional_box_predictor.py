@@ -282,7 +282,7 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
                     features=box_classifier_features,
                     num_predictions_per_location=1)
 
-              batch_size, num_anchors_i, num_classes, mask_height, mask_width =\
+              _, _, num_classes, mask_height, mask_width =\
               mask_predictions.get_shape().as_list()
 
               mask_predictions = tf.reshape(
