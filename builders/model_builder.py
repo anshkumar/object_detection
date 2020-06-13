@@ -370,7 +370,7 @@ def _build_faster_rcnn_feature_extractor(
         feature_type))
   feature_extractor_class = FASTER_RCNN_FEATURE_EXTRACTOR_CLASS_MAP[
       feature_type]
-  if use_masked_conv2d is not None:
+  if use_masked_conv2d:
     return feature_extractor_class(
         is_training, first_stage_features_stride,
         batch_norm_trainable, reuse_weights=reuse_weights, 
