@@ -188,7 +188,7 @@ class SSDMobileNetV2FeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
     data_format = 'NHWC'
     concat_dim = 3 if data_format == 'NHWC' else 1
 
-    with tf.variable_scope('InceptionV2', reuse=self._reuse_weights):
+    with tf.variable_scope('MobilenetV2', reuse=self._reuse_weights):
       with slim.arg_scope(
           [slim.conv2d, slim.max_pool2d, slim.avg_pool2d],
           stride=1,
