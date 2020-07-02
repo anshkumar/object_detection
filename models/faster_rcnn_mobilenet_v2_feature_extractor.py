@@ -143,7 +143,7 @@ class FasterRCNNMobilenetV2FeatureExtractor(
     depth = lambda d: max(int(d * 1.0), 16)
     with tf.variable_scope('MobilenetV2', reuse=self._reuse_weights):
       with slim.arg_scope(
-          mobilenet_v2.training_scope(is_training=None, bn_decay=0.9997)):
+          mobilenet_v2.training_scope(is_training=None, weight_decay=self._weight_decay)):
         with slim.arg_scope(
             [slim.conv2d, slim.separable_conv2d], padding='SAME'):
           net = slim.separable_conv2d(
