@@ -21,7 +21,8 @@ from tensorflow.contrib import slim as contrib_slim
 
 from object_detection.meta_architectures import faster_rcnn_meta_arch
 from object_detection.utils import shape_utils
-from nets import mobilenet_v2
+from nets.mobilenet import mobilenet
+from nets.mobilenet import mobilenet_v2
 
 slim = contrib_slim
 
