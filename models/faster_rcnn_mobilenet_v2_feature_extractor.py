@@ -112,12 +112,12 @@ class FasterRCNNMobilenetV2FeatureExtractor(
               [mobilenet.depth_multiplier], min_depth=self._min_depth):
           _, activations = mobilenet_v2.mobilenet_base(
               preprocessed_inputs,
-              final_endpoint='Conv2d_11_pointwise',
+              final_endpoint='layer_19',
               min_depth=self._min_depth,
               depth_multiplier=self._depth_multiplier,
               scope=scope)
 
-    return activations['Conv2d_11_pointwise'], activations
+    return activations['layer_19'], activations
 
   def _extract_box_classifier_features(self, proposal_feature_maps, scope):
     """Extracts second stage box classifier features.
