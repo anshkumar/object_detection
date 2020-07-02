@@ -109,8 +109,7 @@ class FasterRCNNMobilenetV2FeatureExtractor(
           mobilenet_v2.training_scope(is_training=None, bn_decay=0.9997)), \
           slim.arg_scope(
               [mobilenet.depth_multiplier], min_depth=self._min_depth):
-        with (slim.arg_scope(self._conv_hyperparams_fn())
-              context_manager.IdentityContextManager()):
+        with slim.arg_scope(self._conv_hyperparams_fn()):
           _, activations = mobilenet_v2.mobilenet_base(
               ops.pad_to_multiple(preprocessed_inputs, self._pad_to_multiple),
               final_endpoint='Conv2d_11_pointwise',
