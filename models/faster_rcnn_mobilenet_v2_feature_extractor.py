@@ -25,34 +25,6 @@ from nets import mobilenet_v2
 
 slim = contrib_slim
 
-
-def _get_mobilenet_conv_no_last_stride_defs(conv_depth_ratio_in_percentage):
-  if conv_depth_ratio_in_percentage not in [25, 50, 75, 100]:
-    raise ValueError(
-        'Only the following ratio percentages are supported: 25, 50, 75, 100')
-  conv_depth_ratio_in_percentage = float(conv_depth_ratio_in_percentage) / 100.0
-  channels = np.array([
-      32, 64, 128, 128, 256, 256, 512, 512, 512, 512, 512, 512, 1024, 1024
-  ], dtype=np.float32)
-  channels = (channels * conv_depth_ratio_in_percentage).astype(np.int32)
-  return [
-      mobilenet_v2.Conv(kernel=[3, 3], stride=2, depth=channels[0]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=1, depth=channels[1]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=2, depth=channels[2]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=1, depth=channels[3]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=2, depth=channels[4]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=1, depth=channels[5]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=2, depth=channels[6]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=1, depth=channels[7]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=1, depth=channels[8]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=1, depth=channels[9]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=1, depth=channels[10]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=1, depth=channels[11]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=1, depth=channels[12]),
-      mobilenet_v2.DepthSepConv(kernel=[3, 3], stride=1, depth=channels[13])
-  ]
-
-
 class FasterRCNNMobilenetV2FeatureExtractor(
     faster_rcnn_meta_arch.FasterRCNNFeatureExtractor):
   """Faster R-CNN Mobilenet V1 feature extractor implementation."""
@@ -128,28 +100,24 @@ class FasterRCNNMobilenetV2FeatureExtractor(
       ValueError: If the created network is missing the required activation.
     """
 
-    preprocessed_inputs.get_shape().assert_has_rank(4)
     preprocessed_inputs = shape_utils.check_min_image_dim(
-        min_dim=33, image_tensor=preprocessed_inputs)
+        33, preprocessed_inputs)
 
-    with slim.arg_scope(
-        mobilenet_v2.mobilenet_v2_arg_scope(
-            is_training=self._train_batch_norm,
-            weight_decay=self._weight_decay)):
-      with tf.variable_scope('MobilenetV2',
-                             reuse=self._reuse_weights) as scope:
-        params = {}
-        if self._skip_last_stride:
-          params['conv_defs'] = _get_mobilenet_conv_no_last_stride_defs(
-              conv_depth_ratio_in_percentage=self.
-              _conv_depth_ratio_in_percentage)
-        _, activations = mobilenet_v2.mobilenet_v2_base(
-            preprocessed_inputs,
-            final_endpoint='Conv2d_11_pointwise',
-            min_depth=self._min_depth,
-            depth_multiplier=self._depth_multiplier,
-            scope=scope,
-            **params)
+    with tf.variable_scope('MobilenetV2', reuse=self._reuse_weights) as scope:
+      with slim.arg_scope(
+          mobilenet_v2.training_scope(is_training=None, bn_decay=0.9997)), \
+          slim.arg_scope(
+              [mobilenet.depth_multiplier], min_depth=self._min_depth):
+        with (slim.arg_scope(self._conv_hyperparams_fn())
+              if self._override_base_feature_extractor_hyperparams else
+              context_manager.IdentityContextManager()):
+          _, activations = mobilenet_v2.mobilenet_base(
+              ops.pad_to_multiple(preprocessed_inputs, self._pad_to_multiple),
+              final_endpoint='Conv2d_11_pointwise',
+              depth_multiplier=self._depth_multiplier,
+              use_explicit_padding=self._use_explicit_padding,
+              scope=scope)
+
     return activations['Conv2d_11_pointwise'], activations
 
   def _extract_box_classifier_features(self, proposal_feature_maps, scope):
