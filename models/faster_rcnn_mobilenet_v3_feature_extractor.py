@@ -114,7 +114,6 @@ class FasterRCNNMobilenetV3FeatureExtractor(
               preprocessed_inputs,
               conv_defs=mobilenet_v3.V3_LARGE_DETECTION,
               final_endpoint='layer_17',
-              min_depth=self._min_depth,
               depth_multiplier=self._depth_multiplier,
               scope=scope)
 
